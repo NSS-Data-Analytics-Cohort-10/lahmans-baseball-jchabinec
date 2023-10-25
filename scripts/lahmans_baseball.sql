@@ -68,16 +68,46 @@ GROUP BY position
 
 -- 5. Find the average number of strikeouts per game by decade since 1920. Round the numbers you report to 2 decimal places. Do the same for home runs per game. Do you see any trends?
 SELECT
-	yearid AS year,
-	G AS games,
-	so AS strikeouts_by_batter,
-	soa AS strikeouts_by_pitcher
+	CASE
+		WHEN yearid < 1929 THEN '1920s'
+		WHEN yearid < 1939 THEN '1930s'
+		WHEN yearid < 1949 THEN '1940s'
+		WHEN yearid < 1959 THEN '1950s'
+		WHEN yearid < 1969 THEN '1960s'
+		WHEN yearid < 1979 THEN '1970s'
+		WHEN yearid < 1989 THEN '1980s'
+		WHEN yearid < 1989 THEN '1990s'
+		WHEN yearid < 1999 THEN '1990s'
+		WHEN yearid < 2009 THEN '2000s'
+		ELSE '2010s'
+	END AS decade,
+	SUM(G) AS games_played,
+	SUM(so) AS strikeouts,
+	SUM(hr) AS home_runs,	
+	ROUND(SUM(so)/SUM(G)::numeric,2) AS avg_so_per_game,
+	ROUND(SUM(hr)/SUM(G)::numeric,2) AS avg_hr_per_game
 FROM teams
 WHERE yearid >= 1920
-GROUP BY year
+GROUP BY decade
+ORDER BY decade DESC
+-- ANSWER: See query - the average numbers of both strikeouts and home runs per game seems to be increasing with each decade.
 
 -- 6. Find the player who had the most success stealing bases in 2016, where __success__ is measured as the percentage of stolen base attempts which are successful. (A stolen base attempt results either in a stolen base or being caught stealing.) Consider only players who attempted _at least_ 20 stolen bases.
-	
+SELECT
+	CONCAT(p.namefirst, ' ', p.namelast) AS name,
+	b.sb AS stolen_bases,
+	b.cs AS caught_Stealing,
+	b.sb+b.cs AS attempts,
+	ROUND(b.sb::numeric/(b.sb::numeric+b.cs::numeric),2)*100 AS sb_pct
+FROM batting AS b
+INNER JOIN people AS p
+	USING(playerid)
+WHERE
+	sb+cs > 20
+	AND yearid = 2016
+ORDER BY sb_pct DESC
+LIMIT 1
+-- ANSWER: Chris Owings had teh most success stealing bases in 2016, with a success rate of 91%.
 
 -- 7.  From 1970 – 2016, what is the largest number of wins for a team that did not win the world series? What is the smallest number of wins for a team that did win the world series? Doing this will probably result in an unusually small number of wins for a world series champion – determine why this is the case. Then redo your query, excluding the problem year. How often from 1970 – 2016 was it the case that a team with the most wins also won the world series? What percentage of the time?
 
