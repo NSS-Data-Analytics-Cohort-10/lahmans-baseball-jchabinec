@@ -135,20 +135,55 @@ LIMIT 1
 -- ANSWER 2: The team with the least wins that went on to win the world series was the Los Angeles Dodgers in 1981, with only 63. However, the 1981 season was shortened due to a players strike, so excluding that year, the St. Louis Cardinals won the world series in 2006 with only 83 wins.
 
 -- 8. Using the attendance figures from the homegames table, find the teams and parks which had the top 5 average attendance per game in 2016 (where average attendance is defined as total attendance divided by number of games). Only consider parks where there were at least 10 games played. Report the park name, team name, and average attendance. Repeat for the lowest 5 average attendance.
-WITH attendance_2016 AS
-	(
-	SELECT 
-		team,
-		park,
-		games,
-		AVG(attendance/games::numeric) OVER(PARTITION BY team) AS avg_attendance
-	FROM homegames
-	WHERE
-		year = 2016
-		AND games >= 10
-	)
-
+--Highest Attendance in 2016
+SELECT 
+	t.name AS team,
+	p.park_name AS park,
+	AVG(h.attendance/h.games) OVER(PARTITION BY h.team) AS avg_attendance
+FROM homegames AS h
+INNER JOIN teams AS t
+	ON 	h.team = t.teamid
+INNER JOIN parks AS p
+	ON p.park = h.park
+WHERE
+	h.year = 2016
+	AND h.games >= 10
+	AND t.yearid = 2016
+ORDER BY avg_attendance DESC
+LIMIT 5
+--Lowest Attendance in 2016
+SELECT 
+	t.name AS team,
+	p.park_name AS park,
+	AVG(h.attendance/h.games) OVER(PARTITION BY h.team) AS avg_attendance
+FROM homegames AS h
+INNER JOIN teams AS t
+	ON 	h.team = t.teamid
+INNER JOIN parks AS p
+	ON p.park = h.park
+WHERE
+	h.year = 2016
+	AND h.games >= 10
+	AND t.yearid = 2016
+ORDER BY avg_attendance
+LIMIT 5
+-- ANSWERS: See queries
 
 -- 9. Which managers have won the TSN Manager of the Year award in both the National League (NL) and the American League (AL)? Give their full name and the teams that they were managing when they won the award.
+WHERE
+	playerid IN
+	(
+	SELECT
+		playerid
+	FROM awardsmanagers
+	WHERE lgid = 'AL'
+	)
+	AND playerid IN
+	(
+	SELECT
+		playerid
+	FROM awardsmanagers
+	WHERE lgid = 'NL'
+	)
 
 -- 10. Find all players who hit their career highest number of home runs in 2016. Consider only players who have played in the league for at least 10 years, and who hit at least one home run in 2016. Report the players' first and last names and the number of home runs they hit in 2016.
