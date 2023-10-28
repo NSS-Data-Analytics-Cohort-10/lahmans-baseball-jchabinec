@@ -55,7 +55,6 @@ SELECT
 		WHEN pos = 'P'
 			OR pos = 'C'
 			THEN 'Battery'
-		ELSE 'N/A'
 	END AS position,
 	SUM(po)
 FROM fielding
@@ -107,7 +106,7 @@ WHERE
 	AND yearid = 2016
 ORDER BY sb_pct DESC
 LIMIT 1
--- ANSWER: Chris Owings had teh most success stealing bases in 2016, with a success rate of 91%.
+-- ANSWER: Chris Owings had the most success stealing bases in 2016, with a success rate of 91%.
 
 -- 7.  From 1970 – 2016, what is the largest number of wins for a team that did not win the world series? What is the smallest number of wins for a team that did win the world series? Doing this will probably result in an unusually small number of wins for a world series champion – determine why this is the case. Then redo your query, excluding the problem year. How often from 1970 – 2016 was it the case that a team with the most wins also won the world series? What percentage of the time?
 SELECT
@@ -194,24 +193,21 @@ LIMIT 5
 -- ANSWERS: See queries
 
 -- 9. Which managers have won the TSN Manager of the Year award in both the National League (NL) and the American League (AL)? Give their full name and the teams that they were managing when they won the award.
-SELECT
-	CONCAT(p.namefirst, ' ', p.namelast) AS name,
-	CASE
-		WHEN a.lgid = 'AL' THEN t.name
-	END AS al_team,
-	CASE
-		WHEN a.lgid = 'NL' THEN t.name
-	END AS nl_team
-FROM awardsmanagers AS a
-INNER JOIN managers AS m
+WITH tsn AS
+	(
+	SELECT
+		a.playerid,
+		m.teamid
+	FROM awardsmanagers AS a
+	INNER JOIN managers AS m
 		USING(playerid, yearid)
-INNER JOIN people AS p
-	USING(playerid)
-INNER JOIN teams AS t
-	USING(teamid, yearid)
-WHERE awardid = 'TSN Manager of the Year'
-	AND a.lgid IN ('AL', 'NL')
-ORDER BY name
+	WHERE awardid = 'TSN Manager of the Year'
+		AND a.lgid IN ('AL', 'NL')
+	)
+SELECT *
+FROM tsn
 
+
+-- ANSWER: Jim Leyland won the award with both the Pittsburgh Pirates and the Detroit Tigers, and Davey Johnson won it with the Baltimore Orioles and the Washington Nationals.
 
 -- 10. Find all players who hit their career highest number of home runs in 2016. Consider only players who have played in the league for at least 10 years, and who hit at least one home run in 2016. Report the players' first and last names and the number of home runs they hit in 2016.
