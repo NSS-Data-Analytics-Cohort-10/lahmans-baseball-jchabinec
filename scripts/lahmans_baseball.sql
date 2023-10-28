@@ -1,7 +1,7 @@
 -- 1. What range of years for baseball games played does the provided database cover? 
 SELECT
-	MIN(year) AS oldest_game,
-	MAX(year) AS most_recent_game
+	MIN(span_first) AS oldest_game,
+	MAX(span_last) AS most_recent_game
 FROM homegames;
 -- ANSWER: 1871-2016 (Also found in data dictionary)
 
@@ -10,7 +10,7 @@ SELECT
 	CONCAT(p.namefirst, ' ', p.namelast) AS name,
 	p.height AS height_in_inches,
 	a.g_all AS games_played,
-	t.name
+	t.name AS team
 FROM people AS p
 INNER JOIN appearances AS a
 	USING(playerid)
@@ -116,7 +116,7 @@ SELECT
 	w
 FROM teams
 WHERE
-	yearid > 1970
+	yearid >= 1970
 	AND wswin = 'N'
 ORDER BY w DESC
 LIMIT 1
@@ -127,12 +127,36 @@ SELECT
 	w
 FROM teams
 WHERE
-	yearid > 1970
+	yearid >= 1970
 	AND yearid <> 1981
 	AND wswin = 'Y'
 ORDER BY w ASC
 LIMIT 1
 -- ANSWER 2: The team with the least wins that went on to win the world series was the Los Angeles Dodgers in 1981, with only 63. However, the 1981 season was shortened due to a players strike, so excluding that year, the St. Louis Cardinals won the world series in 2006 with only 83 wins.
+WITH wins AS
+	(
+	SELECT
+		yearid,
+		name,
+		w,
+		CASE
+			WHEN w = MAX(w) OVER(PARTITION BY yearid) THEN 'Y'
+			ELSE 'N'
+		END AS most_wins_in_season,
+		wswin
+	FROM teams
+	)
+SELECT
+	yearid AS year,
+	name AS team,
+	w AS wins
+FROM wins
+WHERE
+	yearid >= 1970
+	AND yearid <> 1981
+	AND most_wins_in_season = 'Y'
+	AND wswin = 'Y'
+-- ANSWER 3: Between 1970 and 2016, 12 world series winners also had the most wins for the season they won. Excluding the 1981 season, this means that this has happened in roughly 26.67% of these years.
 
 -- 8. Using the attendance figures from the homegames table, find the teams and parks which had the top 5 average attendance per game in 2016 (where average attendance is defined as total attendance divided by number of games). Only consider parks where there were at least 10 games played. Report the park name, team name, and average attendance. Repeat for the lowest 5 average attendance.
 --Highest Attendance in 2016
@@ -170,20 +194,24 @@ LIMIT 5
 -- ANSWERS: See queries
 
 -- 9. Which managers have won the TSN Manager of the Year award in both the National League (NL) and the American League (AL)? Give their full name and the teams that they were managing when they won the award.
-WHERE
-	playerid IN
-	(
-	SELECT
-		playerid
-	FROM awardsmanagers
-	WHERE lgid = 'AL'
-	)
-	AND playerid IN
-	(
-	SELECT
-		playerid
-	FROM awardsmanagers
-	WHERE lgid = 'NL'
-	)
+SELECT
+	CONCAT(p.namefirst, ' ', p.namelast) AS name,
+	CASE
+		WHEN a.lgid = 'AL' THEN t.name
+	END AS al_team,
+	CASE
+		WHEN a.lgid = 'NL' THEN t.name
+	END AS nl_team
+FROM awardsmanagers AS a
+INNER JOIN managers AS m
+		USING(playerid, yearid)
+INNER JOIN people AS p
+	USING(playerid)
+INNER JOIN teams AS t
+	USING(teamid, yearid)
+WHERE awardid = 'TSN Manager of the Year'
+	AND a.lgid IN ('AL', 'NL')
+ORDER BY name
+
 
 -- 10. Find all players who hit their career highest number of home runs in 2016. Consider only players who have played in the league for at least 10 years, and who hit at least one home run in 2016. Report the players' first and last names and the number of home runs they hit in 2016.
