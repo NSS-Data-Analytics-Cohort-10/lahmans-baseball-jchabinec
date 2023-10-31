@@ -193,21 +193,59 @@ LIMIT 5
 -- ANSWERS: See queries
 
 -- 9. Which managers have won the TSN Manager of the Year award in both the National League (NL) and the American League (AL)? Give their full name and the teams that they were managing when they won the award.
-WITH tsn AS
+SELECT
+	CONCAT(p.namefirst, ' ', p.namelast) AS name,
+	a.yearid,
+	a.lgid AS league,
+	t.name AS team
+FROM people AS p
+INNER JOIN awardsmanagers AS a
+	USING(playerid)
+INNER JOIN managers AS m
+	USING(playerid, yearid)
+INNER JOIN teams AS t
+	USING(teamid, yearid)
+WHERE playerid IN
 	(
 	SELECT
-		a.playerid,
-		m.teamid
+		DISTINCT playerid
 	FROM awardsmanagers AS a
-	INNER JOIN managers AS m
-		USING(playerid, yearid)
 	WHERE awardid = 'TSN Manager of the Year'
-		AND a.lgid IN ('AL', 'NL')
+		AND lgid = 'AL'
+	INTERSECT
+	SELECT
+		DISTINCT playerid
+	FROM awardsmanagers AS a
+	WHERE awardid = 'TSN Manager of the Year'
+		AND lgid = 'NL'
 	)
-SELECT *
-FROM tsn
-
-
+	AND a.awardid = 'TSN Manager of the Year'
 -- ANSWER: Jim Leyland won the award with both the Pittsburgh Pirates and the Detroit Tigers, and Davey Johnson won it with the Baltimore Orioles and the Washington Nationals.
 
 -- 10. Find all players who hit their career highest number of home runs in 2016. Consider only players who have played in the league for at least 10 years, and who hit at least one home run in 2016. Report the players' first and last names and the number of home runs they hit in 2016.
+WITH career_hr AS
+	(
+	SELECT
+		playerid,
+		yearid,
+		COUNT(yearid) OVER (PARTITION BY playerid) AS years_played,
+		hr,
+		CASE
+			WHEN hr = MAX(hr) OVER (PARTITION BY playerid) THEN 'Y'
+			ELSE 'N'
+		END AS career_high,
+		MAX(hr) OVER (PARTITION BY playerid) AS career_high_hr
+	FROM batting
+	)
+SELECT
+	CONCAT(p.namefirst, ' ', p.namelast) AS name,
+	c.hr
+FROM career_hr AS c
+INNER JOIN people AS p
+	USING(playerid)
+WHERE c.years_played >= 10
+	AND c.yearid = 2016
+	AND c.hr >= 1
+	AND c.career_high = 'Y'
+ORDER BY c.hr DESC
+-- ANSWER: See query - of all players in 2016 that have been in the league for at least 10 years, 13 hit their career highest home runs in 2016.
