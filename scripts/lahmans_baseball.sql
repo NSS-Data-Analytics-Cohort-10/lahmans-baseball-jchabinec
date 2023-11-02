@@ -207,17 +207,16 @@ INNER JOIN teams AS t
 	USING(teamid, yearid)
 WHERE playerid IN
 	(
-	SELECT
-		DISTINCT playerid
+	SELECT 
+		playerid
 	FROM awardsmanagers AS a
-	WHERE awardid = 'TSN Manager of the Year'
-		AND lgid = 'AL'
-	INTERSECT
-	SELECT
-		DISTINCT playerid
-	FROM awardsmanagers AS a
-	WHERE awardid = 'TSN Manager of the Year'
-		AND lgid = 'NL'
+	WHERE
+		a.awardID = 'TSN Manager of the Year'
+		AND (a.lgid = 'AL' OR a.lgid = 'NL')
+	GROUP BY 
+		a.playerid
+	HAVING 
+		COUNT(DISTINCT a.lgID) = 2
 	)
 	AND a.awardid = 'TSN Manager of the Year'
 -- ANSWER: Jim Leyland won the award with both the Pittsburgh Pirates and the Detroit Tigers, and Davey Johnson won it with the Baltimore Orioles and the Washington Nationals.
@@ -249,3 +248,62 @@ WHERE c.years_played >= 10
 	AND c.career_high = 'Y'
 ORDER BY c.hr DESC
 -- ANSWER: See query - of all players in 2016 that have been in the league for at least 10 years, 13 hit their career highest home runs in 2016.
+
+-- 11. Is there any correlation between number of wins and team salary? Use data from 2000 and later to answer this question. As you do this analysis, keep in mind that salaries across the whole league tend to increase together, so you may want to look on a year-by-year basis.
+-- First, find each team's wins and total team salary for each season
+WITH team_salaries AS
+	(SELECT 
+		DISTINCT t.yearid AS season,
+		t.name AS team,
+		t.w AS wins,
+		SUM(s.salary::numeric::money) OVER(PARTITION BY yearid, teamid) AS team_salary
+	FROM teams AS t
+	INNER JOIN salaries AS s
+		USING(teamid, yearid)
+	WHERE yearid = 2001
+	ORDER BY team_salary DESC)
+-- Use that as a CTE to find out how much each team spent on salaries per win, per season. Then rank them by each season's wins and compare the "dollars per win" to the average of that metric per season.
+SELECT
+	season,
+	team,
+	RANK() OVER(PARTITION BY season ORDER BY wins DESC) AS win_rank,
+	team_salary/wins AS dollars_per_win,
+	AVG(team_salary::numeric/wins) OVER(PARTITION BY season)::money AS avg_dollars_per_win
+FROM team_salaries
+-- ANSWER: There doesn't appear to be a correlation between wins and team salaries.
+-- To try it another way, let's look at the average number of wins per season over the average dollars per win
+WITH team_salaries AS
+	(SELECT 
+		DISTINCT t.yearid AS season,
+		t.name AS team,
+		t.w AS wins,
+		SUM(s.salary::numeric::money) OVER(PARTITION BY yearid, teamid) AS team_salary
+	FROM teams AS t
+	INNER JOIN salaries AS s
+		USING(teamid, yearid)
+	WHERE yearid >= 2000
+	ORDER BY team_salary DESC)
+SELECT DISTINCT ON(season, team)
+	season,
+	team,
+	wins,
+	ROUND(AVG(wins) OVER(PARTITION BY season),0) AS avg_wins,
+	RANK() OVER(PARTITION BY season ORDER BY wins DESC) AS win_rank,
+	AVG(team_salary::numeric/wins) OVER(PARTITION BY season)::money AS avg_dollars_per_win,
+	MAX(team_salary::numeric/wins) OVER(PARTITION BY season)::money AS max_dollars_per_win
+FROM team_salaries
+-- 12. In this question, you will explore the connection between number of wins and attendance.
+-- a. Does there appear to be any correlation between attendance at home games and number of wins?
+SELECT DISTINCT ON(t.yearid, t.teamid)
+	t.yearid,
+	t.name AS team,
+	t.w as total_season_wins,
+	SUM(h.attendance) OVER(PARTITION BY h.year, h.team) AS home_game_attendance
+FROM homegames AS h
+INNER JOIN teams AS t
+	ON h.team = t.teamid AND h.year = t.yearid
+
+-- b. Do teams that win the world series see a boost in attendance the following year? What about teams that made the playoffs? Making the playoffs means either being a division winner or a wild card winner.
+
+
+-- 13. It is thought that since left-handed pitchers are more rare, causing batters to face them less often, that they are more effective. Investigate this claim and present evidence to either support or dispute this claim. First, determine just how rare left-handed pitchers are compared with right-handed pitchers. Are left-handed pitchers more likely to win the Cy Young Award? Are they more likely to make it into the hall of fame?
