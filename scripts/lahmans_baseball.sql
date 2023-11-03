@@ -32,12 +32,7 @@ WHERE playerid IN
 	SELECT
 		playerid
 	FROM collegeplaying
-	WHERE schoolid IN
-		(
-		SELECT schoolid
-		FROM schools
-		WHERE schoolname ILIKE '%Vanderbilt%'
-		)
+	WHERE schoolid = 'vandy'
 	)
 GROUP BY playerid
 ORDER BY total_salary DESC
@@ -67,24 +62,12 @@ GROUP BY position
 
 -- 5. Find the average number of strikeouts per game by decade since 1920. Round the numbers you report to 2 decimal places. Do the same for home runs per game. Do you see any trends?
 SELECT
-	CASE
-		WHEN yearid < 1929 THEN '1920s'
-		WHEN yearid < 1939 THEN '1930s'
-		WHEN yearid < 1949 THEN '1940s'
-		WHEN yearid < 1959 THEN '1950s'
-		WHEN yearid < 1969 THEN '1960s'
-		WHEN yearid < 1979 THEN '1970s'
-		WHEN yearid < 1989 THEN '1980s'
-		WHEN yearid < 1989 THEN '1990s'
-		WHEN yearid < 1999 THEN '1990s'
-		WHEN yearid < 2009 THEN '2000s'
-		ELSE '2010s'
-	END AS decade,
-	SUM(G) AS games_played,
+	CONCAT(LEFT(yearid::varchar,3),'0','s') AS decade,
+	SUM(g) AS games_played,
 	SUM(so) AS strikeouts,
 	SUM(hr) AS home_runs,	
-	ROUND(SUM(so)/SUM(G)::numeric,2) AS avg_so_per_game,
-	ROUND(SUM(hr)/SUM(G)::numeric,2) AS avg_hr_per_game
+	ROUND(SUM(so)/SUM(G/2)::numeric,2) AS avg_so_per_game,
+	ROUND(SUM(hr)/SUM(G/2)::numeric,2) AS avg_hr_per_game
 FROM teams
 WHERE yearid >= 1920
 GROUP BY decade
@@ -95,7 +78,7 @@ ORDER BY decade DESC
 SELECT
 	CONCAT(p.namefirst, ' ', p.namelast) AS name,
 	b.sb AS stolen_bases,
-	b.cs AS caught_Stealing,
+	b.cs AS caught_stealing,
 	b.sb+b.cs AS attempts,
 	ROUND(b.sb::numeric/(b.sb::numeric+b.cs::numeric),2)*100 AS sb_pct
 FROM batting AS b
@@ -112,24 +95,24 @@ LIMIT 1
 SELECT
 	yearid,
 	name,
-	w
+	MAX(w) OVER (PARTITION BY yearid, name)AS max_wins
 FROM teams
 WHERE
 	yearid >= 1970
 	AND wswin = 'N'
-ORDER BY w DESC
+ORDER BY max_wins DESC
 LIMIT 1
---ANSWER: The Seattle Mariners had the most wins for a team that did not win the world series, with 116 wins in 2001.
+--ANSWER 1: The Seattle Mariners had the most wins for a team that did not win the world series, with 116 wins in 2001.
 SELECT
 	yearid,
 	name,
-	w
+	MIN(w) OVER (PARTITION BY yearid, name)AS min_wins
 FROM teams
 WHERE
 	yearid >= 1970
 	AND yearid <> 1981
 	AND wswin = 'Y'
-ORDER BY w ASC
+ORDER BY min_wins ASC
 LIMIT 1
 -- ANSWER 2: The team with the least wins that went on to win the world series was the Los Angeles Dodgers in 1981, with only 63. However, the 1981 season was shortened due to a players strike, so excluding that year, the St. Louis Cardinals won the world series in 2006 with only 83 wins.
 WITH wins AS
