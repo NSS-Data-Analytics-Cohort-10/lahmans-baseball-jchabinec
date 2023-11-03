@@ -260,49 +260,31 @@ WITH team_salaries AS
 	FROM teams AS t
 	INNER JOIN salaries AS s
 		USING(teamid, yearid)
-	WHERE yearid = 2001
-	ORDER BY team_salary DESC)
+	WHERE yearid >= 2001)
 -- Use that as a CTE to find out how much each team spent on salaries per win, per season. Then rank them by each season's wins and compare the "dollars per win" to the average of that metric per season.
 SELECT
-	season,
-	team,
-	RANK() OVER(PARTITION BY season ORDER BY wins DESC) AS win_rank,
-	team_salary/wins AS dollars_per_win,
-	AVG(team_salary::numeric/wins) OVER(PARTITION BY season)::money AS avg_dollars_per_win
+	DISTINCT team,
+	CORR(team_salary::numeric::int, wins) OVER(PARTITION BY team) AS wins_vs_salary_r2
 FROM team_salaries
--- ANSWER: There doesn't appear to be a correlation between wins and team salaries.
--- To try it another way, let's look at the average number of wins per season over the average dollars per win
-WITH team_salaries AS
-	(SELECT 
-		DISTINCT t.yearid AS season,
-		t.name AS team,
-		t.w AS wins,
-		SUM(s.salary::numeric::money) OVER(PARTITION BY yearid, teamid) AS team_salary
-	FROM teams AS t
-	INNER JOIN salaries AS s
-		USING(teamid, yearid)
-	WHERE yearid >= 2000
-	ORDER BY team_salary DESC)
-SELECT DISTINCT ON(season, team)
-	season,
-	team,
-	wins,
-	ROUND(AVG(wins) OVER(PARTITION BY season),0) AS avg_wins,
-	RANK() OVER(PARTITION BY season ORDER BY wins DESC) AS win_rank,
-	AVG(team_salary::numeric/wins) OVER(PARTITION BY season)::money AS avg_dollars_per_win,
-	MAX(team_salary::numeric/wins) OVER(PARTITION BY season)::money AS max_dollars_per_win
-FROM team_salaries
+ORDER BY wins_vs_salary_r2 DESC
+-- ANSWER: There doesn't appear to be a correlation between wins and team salaries. Only 11 teams even have above a 50/50 chance of affecting their number of wins by spending more or less on salaries.
+
 -- 12. In this question, you will explore the connection between number of wins and attendance.
 -- a. Does there appear to be any correlation between attendance at home games and number of wins?
-SELECT DISTINCT ON(t.yearid, t.teamid)
-	t.yearid,
-	t.name AS team,
-	t.w as total_season_wins,
-	SUM(h.attendance) OVER(PARTITION BY h.year, h.team) AS home_game_attendance
-FROM homegames AS h
-INNER JOIN teams AS t
-	ON h.team = t.teamid AND h.year = t.yearid
-
+WITH homegame_wins AS
+	(SELECT
+	 	DISTINCT t.yearid,
+		t.name AS team,
+		t.w as total_season_wins,
+		SUM(h.attendance) OVER(PARTITION BY h.year, h.team) AS home_game_attendance
+	FROM homegames AS h
+	INNER JOIN teams AS t
+		ON h.team = t.teamid AND h.year = t.yearid)
+SELECT
+	DISTINCT team,
+	CORR(home_game_attendance::bigint, total_season_wins) OVER(PARTITION BY team) AS correlation
+FROM homegame_wins
+-- ANSWER: There does not appear to be a general correlation between attendance and wins
 -- b. Do teams that win the world series see a boost in attendance the following year? What about teams that made the playoffs? Making the playoffs means either being a division winner or a wild card winner.
 
 
